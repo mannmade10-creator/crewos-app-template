@@ -17,6 +17,7 @@ interface BookingFormData {
   name: string;
   email: string;
   phone: string;
+  service: string;
   date: string;
   time: string;
   notes: string;
@@ -155,7 +156,7 @@ function ContactForm() {
 /* ─── Booking Form ───────────────────────────────────────────────────────── */
 function BookingForm() {
   const [form, setForm] = useState<BookingFormData>({
-    name: "", email: "", phone: "", date: "", time: "", notes: "",
+    name: "", email: "", phone: "", service: "", date: "", time: "", notes: "",
   });
   const [status, setStatus] = useState<FormStatus>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -199,14 +200,19 @@ function BookingForm() {
           </svg>
         </div>
         <h3 className="font-heading text-xl font-bold text-[var(--fg)] mb-2">
-          Appointment Confirmed!
+          Appointment Requested!
         </h3>
         <p className="text-[var(--fg-muted)] text-sm max-w-xs mx-auto">
-          Check your email for a calendar invite with the meeting link.
+          We'll confirm your booking shortly. Check your email for details.
         </p>
       </div>
     );
   }
+
+  // Build service options from config (falls back to generic options if none set)
+  const serviceOptions = config.services.length > 0
+    ? config.services.map((s) => s.title)
+    : ["Consultation", "Service One", "Service Two", "Service Three"];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -246,6 +252,21 @@ function BookingForm() {
         />
       </div>
 
+      <div>
+        <label className={labelCls}>Service *</label>
+        <select
+          required
+          value={form.service}
+          onChange={set("service")}
+          className={inputCls}
+        >
+          <option value="">Select a service…</option>
+          {serviceOptions.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelCls}>Preferred Date *</label>
@@ -278,7 +299,7 @@ function BookingForm() {
         <label className={labelCls}>Notes (optional)</label>
         <textarea
           rows={3}
-          placeholder="Anything you'd like us to know before the call…"
+          placeholder="Anything you'd like us to know before the appointment…"
           value={form.notes}
           onChange={set("notes")}
           className={`${inputCls} resize-none`}

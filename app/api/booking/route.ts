@@ -1,155 +1,99 @@
-/**
- * POST /api/booking
- *
- * Receives the booking form submission and:
- * 1. Creates a Google Calendar event with a Google Meet link
- * 2. Stores the lead in the CrewOS CRM
- *
- * Required env vars (set by Sam via app_build_env_set):
- *   CREWOS_GCAL_ACCESS_TOKEN   — OAuth2 access token
- *   CREWOS_GCAL_REFRESH_TOKEN  — OAuth2 refresh token
- *   CREWOS_GCAL_CALENDAR_ID    — calendar ID (default: "primary")
- *   CREWOS_GCAL_TIMEZONE       — IANA timezone (default: "America/Chicago")
- *   CREWOS_SUPABASE_URL        — for CRM lead
- *   CREWOS_SUPABASE_SERVICE_KEY
- *   CREWOS_WORKSPACE_ID
- *
- * Google Cloud project must have the Calendar API enabled and the tokens
- * issued with scope: https://www.googleapis.com/auth/calendar
- */
-
 import { NextRequest, NextResponse } from "next/server";
 
-interface BookingBody {
-  name: string;
-  email: string;
-  phone?: string;
-  date: string;   // YYYY-MM-DD
-  time: string;   // "9:00 AM"
-  notes?: string;
-}
-
-/** Convert "9:00 AM" + "YYYY-MM-DD" into an ISO datetime string */
-function toISO(date: string, time: string, tz: string): string {
-  // Parse "9:00 AM" / "10:30 AM" / "1:00 PM"
-  const [rawTime, period] = time.split(" ");
-  let [hours, minutes] = rawTime.split(":").map(Number);
-  if (period === "PM" && hours !== 12) hours += 12;
-  if (period === "AM" && hours === 12) hours = 0;
-
-  // Build a local time string for the Intl API
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date}T${pad(hours)}:${pad(minutes)}:00`;
-}
-
-/** Refresh the Google Calendar access token */
-async function refreshAccessToken(refreshToken: string): Promise<string> {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id:     process.env.GOOGLE_CLIENT_ID     ?? "",
-      client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      refresh_token: refreshToken,
-      grant_type:    "refresh_token",
-    }),
-  });
-  if (!res.ok) throw new Error("Failed to refresh Google token.");
-  const data = await res.json();
-  return data.access_token as string;
-}
+const SUPABASE_URL        = process.env.CREWOS_SUPABASE_URL        ?? "";
+const SUPABASE_SERVICE_KEY = process.env.CREWOS_SUPABASE_SERVICE_KEY ?? "";
+const WORKSPACE_ID        = process.env.CREWOS_WORKSPACE_ID        ?? "";
+const RESEND_API_KEY      = process.env.RESEND_API_KEY              ?? "";
+const OWNER_EMAIL         = process.env.BUSINESS_OWNER_EMAIL        ?? "";
+const FROM_EMAIL          = process.env.BOOKING_FROM_EMAIL          ?? "noreply@notifications.crewwos.com";
 
 export async function POST(req: NextRequest) {
-  let body: BookingBody;
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
-  }
+    const body = await req.json();
+    const { name, email, phone, service, preferred_date, time, notes } = body;
 
-  const { name, email, phone, date, time, notes } = body;
+    if (!name?.trim() || !email?.trim() || !service?.trim()) {
+      return NextResponse.json({ error: "Name, email, and service are required." }, { status: 400 });
+    }
 
-  if (!name?.trim() || !email?.trim() || !date || !time) {
-    return NextResponse.json({ error: "Name, email, date, and time are required." }, { status: 400 });
-  }
+    // ── Dev mode fallback ────────────────────────────────────────────────────
+    const devMode = !SUPABASE_URL || !SUPABASE_SERVICE_KEY || !WORKSPACE_ID;
+    if (devMode) {
+      console.log("[booking] Dev mode — skipping Supabase + Resend");
+      return NextResponse.json({ ok: true, dev: true });
+    }
 
-  const accessToken  = process.env.CREWOS_GCAL_ACCESS_TOKEN;
-  const refreshToken = process.env.CREWOS_GCAL_REFRESH_TOKEN;
-  const calendarId   = process.env.CREWOS_GCAL_CALENDAR_ID  ?? "primary";
-  const timezone     = process.env.CREWOS_GCAL_TIMEZONE      ?? "America/Chicago";
+    // ── Write to Supabase ────────────────────────────────────────────────────
+    const preferredDateTime = preferred_date && time ? `${preferred_date} ${time}` : preferred_date ?? null;
 
-  if (!accessToken || !refreshToken) {
-    // Booking not configured — fall through to contact-only
-    return NextResponse.json({ error: "Booking is not configured for this site." }, { status: 503 });
-  }
-
-  const supabaseUrl = process.env.CREWOS_SUPABASE_URL;
-  const supabaseKey = process.env.CREWOS_SUPABASE_SERVICE_KEY;
-  const workspaceId = process.env.CREWOS_WORKSPACE_ID;
-
-  const startLocal = toISO(date, time, timezone);
-  // Default to 30-minute appointment
-  const endDate   = new Date(`${startLocal}:00`);
-  endDate.setMinutes(endDate.getMinutes() + 30);
-  const endLocal = endDate.toISOString().slice(0, 16);
-
-  const event = {
-    summary: `Consultation: ${name.trim()}`,
-    description: [
-      `Name: ${name.trim()}`,
-      `Email: ${email.trim()}`,
-      phone ? `Phone: ${phone.trim()}` : null,
-      notes?.trim() ? `Notes: ${notes.trim()}` : null,
-    ].filter(Boolean).join("\n"),
-    start: { dateTime: `${startLocal}:00`, timeZone: timezone },
-    end:   { dateTime: `${endLocal}:00`,   timeZone: timezone },
-    attendees: [{ email: email.trim() }],
-    conferenceData: {
-      createRequest: {
-        requestId: `crewos-${Date.now()}`,
-        conferenceSolutionKey: { type: "hangoutsMeet" },
+    const sbRes = await fetch(`${SUPABASE_URL}/rest/v1/appointments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+        "Prefer": "return=minimal",
       },
-    },
-  };
+      body: JSON.stringify({
+        workspace_id:   WORKSPACE_ID,
+        name:           name.trim(),
+        email:          email.trim().toLowerCase(),
+        phone:          phone?.trim() ?? null,
+        service:        service.trim(),
+        preferred_date: preferredDateTime,
+        notes:          notes?.trim() ?? null,
+        status:         "pending",
+        created_at:     new Date().toISOString(),
+      }),
+    });
 
-  try {
-    // Try with current token first, refresh on 401
-    let token = accessToken;
-    let calRes = await createEvent(calendarId, event, token);
-
-    if (calRes.status === 401 && refreshToken) {
-      token = await refreshAccessToken(refreshToken);
-      calRes = await createEvent(calendarId, event, token);
+    if (!sbRes.ok) {
+      const text = await sbRes.text();
+      console.error("[booking] Supabase insert failed:", sbRes.status, text);
+      return NextResponse.json({ error: "Failed to save booking." }, { status: 500 });
     }
 
-    if (!calRes.ok) {
-      const text = await calRes.text();
-      console.error("[booking] Calendar API error:", calRes.status, text);
-      return NextResponse.json({ error: "Failed to create calendar event." }, { status: 500 });
-    }
+    // ── Send Resend notification email ───────────────────────────────────────
+    if (RESEND_API_KEY && OWNER_EMAIL) {
+      const dateLabel = preferredDateTime ?? "No date specified";
+      const emailBody = {
+        from: FROM_EMAIL,
+        to:   OWNER_EMAIL,
+        subject: `New Booking Request — ${service.trim()}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+            <h2 style="margin:0 0 16px;font-size:20px;color:#0f172a">📅 New Booking Request</h2>
+            <table style="width:100%;border-collapse:collapse;font-size:14px;color:#334155">
+              <tr><td style="padding:8px 0;font-weight:600;width:120px">Name</td><td>${name.trim()}</td></tr>
+              <tr><td style="padding:8px 0;font-weight:600">Email</td><td>${email.trim()}</td></tr>
+              <tr><td style="padding:8px 0;font-weight:600">Phone</td><td>${phone?.trim() || "—"}</td></tr>
+              <tr><td style="padding:8px 0;font-weight:600">Service</td><td>${service.trim()}</td></tr>
+              <tr><td style="padding:8px 0;font-weight:600">Date / Time</td><td>${dateLabel}</td></tr>
+              <tr><td style="padding:8px 0;font-weight:600">Notes</td><td>${notes?.trim() || "—"}</td></tr>
+            </table>
+            <hr style="margin:20px 0;border:none;border-top:1px solid #e2e8f0"/>
+            <p style="font-size:12px;color:#94a3b8;margin:0">Sent by CrewOS · Reply directly to ${email.trim()}</p>
+          </div>
+        `,
+        reply_to: email.trim(),
+      };
 
-    // Also save to CRM
-    if (supabaseUrl && supabaseKey && workspaceId) {
-      await fetch(`${supabaseUrl}/rest/v1/crm_leads`, {
+      const resendRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "apikey": supabaseKey,
-          "Authorization": `Bearer ${supabaseKey}`,
-          "Prefer": "return=minimal",
+          "Authorization": `Bearer ${RESEND_API_KEY}`,
         },
-        body: JSON.stringify({
-          workspace_id: workspaceId,
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          phone: phone?.trim() ?? null,
-          notes: notes?.trim() ?? null,
-          source: "website_booking_form",
-          status: "booked",
-          appointment_at: `${startLocal}:00`,
-          created_at: new Date().toISOString(),
-        }),
-      }).catch((e) => console.warn("[booking] CRM insert failed:", e));
+        body: JSON.stringify(emailBody),
+      });
+
+      if (!resendRes.ok) {
+        const text = await resendRes.text();
+        // Non-fatal — booking is saved, just log the email failure
+        console.warn("[booking] Resend email failed:", resendRes.status, text);
+      } else {
+        console.log("[booking] Resend email sent to", OWNER_EMAIL);
+      }
     }
 
     return NextResponse.json({ ok: true });
@@ -157,18 +101,4 @@ export async function POST(req: NextRequest) {
     console.error("[booking] Unexpected error:", err);
     return NextResponse.json({ error: "An unexpected error occurred." }, { status: 500 });
   }
-}
-
-async function createEvent(calendarId: string, event: object, token: string) {
-  return fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendNotifications=true`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(event),
-    }
-  );
 }

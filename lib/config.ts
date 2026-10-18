@@ -56,9 +56,16 @@ export const config = {
 
   // ── Server-side CrewOS backend (never expose to client) ──────────────────
   crewos: {
-    supabaseUrl:       process.env.CREWOS_SUPABASE_URL        ?? "",
+    supabaseUrl:        process.env.CREWOS_SUPABASE_URL         ?? "",
     supabaseServiceKey: process.env.CREWOS_SUPABASE_SERVICE_KEY ?? "",
-    workspaceId:       process.env.CREWOS_WORKSPACE_ID        ?? "",
+    workspaceId:        process.env.CREWOS_WORKSPACE_ID         ?? "",
+  },
+
+  // ── Resend email notifications (server-side) ──────────────────────────────
+  resend: {
+    apiKey:     process.env.RESEND_API_KEY       ?? "",
+    ownerEmail: process.env.BUSINESS_OWNER_EMAIL ?? "",
+    fromEmail:  process.env.BOOKING_FROM_EMAIL   ?? "noreply@notifications.crewwos.com",
   },
 
   // ── Google Calendar (server-side, optional) ───────────────────────────────
@@ -71,8 +78,9 @@ export const config = {
 
   // ── Feature flags derived from config ─────────────────────────────────────
   get hasBooking() {
-    return Boolean(this.gcal.accessToken && this.gcal.refreshToken);
+    // Must be NEXT_PUBLIC_ so server and client render the same HTML (avoids hydration mismatch)
+    return Boolean(process.env.NEXT_PUBLIC_ENABLE_BOOKING);
   },
-  get hasPhone() { return Boolean(this.phone); },
+  get hasPhone()   { return Boolean(this.phone); },
   get hasAddress() { return Boolean(this.address); },
 } as const;
