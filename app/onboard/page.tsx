@@ -78,7 +78,7 @@ export default function OnboardPage() {
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-10 text-center">
           <div className="text-5xl mb-4">&#127881;</div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Your site is live!</h1>
-          <p className="text-gray-500 text-sm mb-6">Your CrewOS workspace has been provisioned. Check your email for next steps.</p>
+          <p className="text-gray-500 text-sm mb-6">Your CrewwOS workspace has been provisioned. Check your email for next steps.</p>
           <a href={done.url} target="_blank" rel="noopener noreferrer"
             className="inline-block bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg px-6 py-3 text-sm transition">
             Visit Your Site
