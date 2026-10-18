@@ -92,7 +92,7 @@ export default function OnboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-sky-50 to-slate-100 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-2xl mb-6 flex items-center justify-between">
         <div>
-          <span className="text-xl font-black tracking-tight text-sky-600">CrewOS</span>
+          <span className="text-xl font-black tracking-tight text-sky-600">CrewwOS</span>
           <span className="ml-2 text-xs text-gray-400 font-medium">New Workspace Setup</span>
         </div>
         <span className="text-xs text-gray-400">Step {step} of {STEPS.length}</span>
@@ -244,7 +244,7 @@ export default function OnboardPage() {
         </div>
       </div>
       <p className="mt-6 text-xs text-gray-400 text-center">
-        Powered by <span className="font-semibold text-sky-500">CrewOS</span>
+        Powered by <span className="font-semibold text-sky-500">CrewwOS</span>
       </p>
     </div>
   );
