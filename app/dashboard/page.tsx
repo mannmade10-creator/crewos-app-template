@@ -1,7 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "CrewOS App";
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "CrewwOS App";
 const APP_TYPE = process.env.NEXT_PUBLIC_APP_TYPE ?? "platform";
 
 export default async function DashboardPage() {

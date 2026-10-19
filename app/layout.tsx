@@ -6,8 +6,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: process.env.NEXT_PUBLIC_APP_NAME ?? "CrewOS App",
-  description: "Powered by CrewOS — built by M.A.D.E Technologies",
+  title: process.env.NEXT_PUBLIC_APP_NAME ?? "CrewwOS App",
+  description: "Powered by CrewwOS — built by M.A.D.E Technologies",
 };
 
 export default function RootLayout({

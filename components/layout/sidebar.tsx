@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "CrewOS App";
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "CrewwOS App";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: "⊞" },
@@ -43,7 +43,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-border">
         <p className="text-xs text-muted-foreground text-center">
-          Powered by CrewOS
+          Powered by CrewwOS
         </p>
       </div>
     </aside>

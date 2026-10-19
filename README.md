@@ -1,6 +1,6 @@
-# CrewOS App Template
+# CrewwOS App Template
 
-Next.js 14 starter used by CrewOS to scaffold client apps. Built with Clerk auth, Supabase, Tailwind CSS, and shadcn/ui.
+Next.js 14 starter used by CrewwOS to scaffold client apps. Built with Clerk auth, Supabase, Tailwind CSS, and shadcn/ui.
 
 ## Stack
 
@@ -21,4 +21,4 @@ Next.js 14 starter used by CrewOS to scaffold client apps. Built with Clerk auth
 
 See `.env.example` for all required variables.
 
-## Built by M.A.D.E Technologies via CrewOS
+## Built by M.A.D.E Technologies via CrewwOS

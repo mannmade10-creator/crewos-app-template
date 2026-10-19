@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/nextjs";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "CrewOS App";
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "CrewwOS App";
 
 export default function HomePage() {
   return (
@@ -14,7 +14,7 @@ export default function HomePage() {
           </div>
           <h1 className="text-4xl font-bold tracking-tight">{APP_NAME}</h1>
           <p className="text-slate-400 text-lg">
-            Powered by <span className="text-blue-400 font-semibold">CrewOS</span>
+            Powered by <span className="text-blue-400 font-semibold">CrewwOS</span>
           </p>
         </div>
 
@@ -52,7 +52,7 @@ export default function HomePage() {
             rel="noopener noreferrer"
             className="text-slate-500 hover:text-slate-400 transition-colors"
           >
-            M.A.D.E Technologies
+            M.A.D.E Technologies Inc
           </a>
         </p>
       </div>
